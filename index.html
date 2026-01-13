@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root { 
+      --primary: #1abc9c; --secondary: #3498db; --danger: #e74c3c; --warning: #f1c40f; 
+      --bg: #f4f7f6; --card: #fff; --text: #2c3e50;
+    }
+    body { font-family: 'Poppins', sans-serif; background: var(--bg); color: var(--text); padding: 20px; margin: 0; }
+    
+    /* GRID LAYOUTS */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 25px; }
+    .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    /* CARDS */
+    .card { background: var(--card); border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.03); border: 1px solid #dee2e6; }
+    
+    /* KPI CARDS */
+    .stat-card { position: relative; overflow: hidden; }
+    .stat-card .label { font-size: 12px; color: #7f8c8d; text-transform: uppercase; font-weight: 600; }
+    .stat-card .value { font-size: 24px; font-weight: 600; margin: 5px 0; color: #2c3e50; }
+    .stat-card .icon { position: absolute; right: 20px; top: 20px; font-size: 30px; opacity: 0.1; }
+    
+    .c-blue { border-left: 4px solid var(--secondary); }
+    .c-green { border-left: 4px solid var(--primary); }
+    .c-red { border-left: 4px solid var(--danger); }
+    .c-orange { border-left: 4px solid var(--warning); }
+
+    /* TABLES */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; color: #95a5a6; font-weight: 500; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+    td { padding: 10px 0; border-bottom: 1px solid #f9f9f9; }
+    
+    .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+    .bg-paid { background: #d4edda; color: #155724; }
+    .bg-unpaid { background: #f8d7da; color: #721c24; }
+    .bg-warn { background: #fff3cd; color: #856404; }
+
+    /* LOADING */
+    #loader { position: fixed; inset: 0; background: var(--bg); z-index: 999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+  </style>
+</head>
+<body>
+
+<div id="loader">
+  <i class="fas fa-circle-notch fa-spin fa-3x" style="color:var(--primary)"></i>
+  <p style="margin-top:15px; color:#7f8c8d;">Loading Dashboard...</p>
+</div>
+
+<div class="kpi-grid">
+  <div class="card stat-card c-green">
+    <div class="label">Total Revenue</div>
+    <div class="value" id="kRevenue">...</div>
+    <i class="fas fa-coins icon" style="color:var(--primary)"></i>
+  </div>
+  <div class="card stat-card c-red">
+    <div class="label">Total Expense</div>
+    <div class="value" id="kExpense">...</div>
+    <i class="fas fa-shopping-cart icon" style="color:var(--danger)"></i>
+  </div>
+  <div class="card stat-card c-blue">
+    <div class="label">Net Profit</div>
+    <div class="value" id="kProfit">...</div>
+    <i class="fas fa-chart-line icon" style="color:var(--secondary)"></i>
+  </div>
+  <div class="card stat-card c-orange">
+    <div class="label">Receivables (Due)</div>
+    <div class="value" id="kReceive" style="color:var(--warning)">...</div>
+    <i class="fas fa-hand-holding-usd icon" style="color:var(--warning)"></i>
+  </div>
+  <div class="card stat-card c-red">
+    <div class="label">Payables (Owe)</div>
+    <div class="value" id="kPayable" style="color:var(--danger)">...</div>
+    <i class="fas fa-file-invoice-dollar icon" style="color:var(--danger)"></i>
+  </div>
+</div>
+
+<div class="main-grid">
+  <div>
+    <div class="card" style="margin-bottom:20px;">
+      <h3 style="margin:0 0 15px 0;">Sales Trend</h3>
+      <div id="chartLine" style="height:300px;"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 15px 0;">Recent Orders</h3>
+      <table id="recentTable">
+        <thead><tr><th>ID</th><th>Customer</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody id="recentBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="card" style="margin-bottom:20px; border-left: 4px solid var(--danger);">
+      <h3 style="margin:0 0 15px 0; color:var(--danger);"><i class="fas fa-exclamation-triangle"></i> Low Stock Alerts</h3>
+      <div style="max-height: 250px; overflow-y: auto;">
+        <table id="alertTable">
+          <thead><tr><th>Item</th><th style="text-align:right;">Stock</th></tr></thead>
+          <tbody id="alertBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 15px 0;">Inventory by Category</h3>
+      <div id="chartPie" style="height:250px;"></div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+  google.charts.load('current', {'packages':['corechart']});
+  google.charts.setOnLoadCallback(initDashboard);
+
+  function initDashboard() {
+    google.script.run.withSuccessHandler(render).getDashboardData();
+  }
+
+  function render(data) {
+    document.getElementById('loader').style.display = 'none';
+
+    // 1. KPIS
+    const fmt = (n) => '৳' + n.toLocaleString();
+    document.getElementById('kRevenue').innerText = fmt(data.kpi.revenue);
+    document.getElementById('kExpense').innerText = fmt(data.kpi.expense);
+    document.getElementById('kProfit').innerText = fmt(data.kpi.profit);
+    document.getElementById('kReceive').innerText = fmt(data.kpi.receivable);
+    document.getElementById('kPayable').innerText = fmt(data.kpi.payable);
+
+    // 2. RECENT ORDERS
+    const recentHtml = data.recent.map(o => `
+      <tr>
+        <td style="font-weight:bold;">${o.id}</td>
+        <td>${o.customer}</td>
+        <td>${o.date}</td>
+        <td>৳${o.amount}</td>
+        <td><span class="badge ${o.status==='Paid'?'bg-paid':'bg-unpaid'}">${o.status}</span></td>
+      </tr>
+    `).join('');
+    document.getElementById('recentBody').innerHTML = recentHtml || '<tr><td colspan="5">No recent orders</td></tr>';
+
+    // 3. LOW STOCK ALERTS
+    const alertHtml = data.alerts.map(a => `
+      <tr>
+        <td>${a.name}</td>
+        <td style="text-align:right; font-weight:bold; color:var(--danger);">${a.stock} <small>/ ${a.level}</small></td>
+      </tr>
+    `).join('');
+    document.getElementById('alertBody').innerHTML = alertHtml || '<tr><td colspan="2">All stock levels good!</td></tr>';
+
+    // 4. CHARTS
+    drawCharts(data);
+  }
+
+  function drawCharts(data) {
+    // Line Chart
+    const lineData = google.visualization.arrayToDataTable([
+      ['Month', 'Sales'], 
+      ...data.charts.trend.map(t => [t.month, t.total])
+    ]);
+    new google.visualization.AreaChart(document.getElementById('chartLine')).draw(lineData, {
+      legend: 'none', 
+      colors: ['#3498db'], 
+      areaOpacity: 0.1,
+      hAxis: { textStyle: { color: '#999' } },
+      vAxis: { gridlines: { color: '#eee' } },
+      chartArea: { width: '90%', height: '80%' }
+    });
+
+    // Pie Chart
+    const pieData = google.visualization.arrayToDataTable([
+      ['Category', 'Stock'], 
+      ...data.charts.categories.map(c => [c.category, c.stock])
+    ]);
+    new google.visualization.PieChart(document.getElementById('chartPie')).draw(pieData, {
+      pieHole: 0.4,
+      colors: ['#1abc9c', '#3498db', '#9b59b6', '#f1c40f', '#e74c3c'],
+      chartArea: { width: '90%', height: '90%' },
+      legend: { position: 'right' }
+    });
+  }
+</script>
+</body>
+</html>

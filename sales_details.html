@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root { --primary: #1abc9c; --bg: #f4f7f6; --card: #ffffff; --border: #dee2e6; }
+    body { font-family: 'Poppins', sans-serif; background: var(--bg); padding: 20px; font-size: 13px; }
+    
+    .toolbar { background: var(--card); padding: 15px; border-radius: 12px; display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
+    .toolbar div { display:flex; flex-direction:column; gap:5px; }
+    label { font-size: 11px; font-weight: 600; color: #666; text-transform:uppercase; }
+    input { padding: 8px; border: 1px solid #ccc; border-radius: 6px; }
+    
+    .btn { cursor: pointer; border: none; border-radius: 6px; padding: 8px 15px; font-weight: 500; transition: 0.2s; font-size: 13px; display: inline-flex; align-items: center; gap: 5px; }
+    .btn-dark { background: #34495e; color: white; }
+    .btn-blue { background: #3498db; color: white; }
+    .btn-refresh { background: var(--primary); color: white; margin-left: auto; }
+    
+    /* Table */
+    .card { background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; color: #555; font-weight: 600; }
+    td { padding: 10px 12px; border-bottom: 1px solid #eee; vertical-align: middle; }
+    
+    /* Badges */
+    .badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .pay-paid { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .pay-unpaid { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .pay-partial { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    
+    .ship-pending { background: #e2e3e5; color: #383d41; }
+    .ship-shipped { background: #d1ecf1; color: #0c5460; }
+    .ship-delivered { background: #d4edda; color: #155724; }
+
+    /* Modal */
+    .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+    .modal-content { background:white; padding:20px; border-radius:12px; width:450px; max-height: 80vh; overflow-y: auto; }
+    .modal-header { display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px; }
+    
+    select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; }
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div><label>Start Date</label><input type="date" id="start"></div>
+  <div><label>End Date</label><input type="date" id="end"></div>
+  <div><label>&nbsp;</label><button class="btn btn-dark" onclick="loadData()">Filter</button></div>
+  <button class="btn btn-refresh" onclick="loadData()"><i class="fas fa-sync-alt"></i> Refresh Data</button>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Order ID</th>
+        <th>Customer</th>
+        <th>Total</th>
+        <th>Received</th>
+        <th>Balance</th>
+        <th>Payment</th>
+        <th>Shipping</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div id="viewModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 style="margin:0;">Order Items</h3>
+      <i class="fas fa-times" onclick="$('#viewModal').hide()" style="cursor:pointer;"></i>
+    </div>
+    <div id="viewContent"></div>
+  </div>
+</div>
+
+<div id="editModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 style="margin:0;">Update Status</h3>
+      <i class="fas fa-times" onclick="$('#editModal').hide()" style="cursor:pointer;"></i>
+    </div>
+    <input type="hidden" id="editID">
+    
+    <label>Payment Status</label>
+    <select id="editPay">
+      <option value="Unpaid">Unpaid</option>
+      <option value="Partial">Partial</option>
+      <option value="Paid">Paid</option>
+    </select>
+
+    <label>Shipping Status</label>
+    <select id="editShip">
+      <option value="Pending">Pending</option>
+      <option value="Processing">Processing</option>
+      <option value="Shipped">Shipped</option>
+      <option value="Delivered">Delivered</option>
+      <option value="Returned">Returned</option>
+      <option value="Cancelled">Cancelled</option>
+    </select>
+    
+    <div style="text-align:right;">
+      <button class="btn btn-blue" onclick="saveStatus()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  $(document).ready(() => {
+    // Default to This Month
+    const date = new Date();
+    const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+    $('#start').val(firstDay.toISOString().split('T')[0]);
+    $('#end').val(date.toISOString().split('T')[0]);
+    loadData();
+  });
+
+  function loadData() {
+    $('#tbody').html('<tr><td colspan="9" style="text-align:center; padding:20px;">Loading Orders...</td></tr>');
+    const s = $('#start').val();
+    const e = $('#end').val();
+    
+    google.script.run.withSuccessHandler(renderTable).sdGetOrders(s, e);
+  }
+
+  function renderTable(orders) {
+    if(!orders || orders.length === 0) {
+      $('#tbody').html('<tr><td colspan="9" style="text-align:center; padding:20px;">No orders found.</td></tr>');
+      return;
+    }
+    
+    const html = orders.map(o => {
+      const payClass = 'pay-' + o.payStatus.toLowerCase();
+      const shipClass = 'ship-' + o.shipStatus.toLowerCase().replace(' ','');
+
+      return `<tr>
+        <td>${new Date(o.date).toLocaleDateString()}</td>
+        <td style="font-weight:bold; color:#555;">${o.id}</td>
+        <td>${o.custName}</td>
+        <td>৳${o.total.toLocaleString()}</td>
+        <td style="color:green;">৳${o.received.toLocaleString()}</td>
+        <td style="color:red; font-weight:bold;">৳${o.balance.toLocaleString()}</td>
+        <td><span class="badge ${payClass}">${o.payStatus}</span></td>
+        <td><span class="badge ${shipClass}">${o.shipStatus}</span></td>
+        <td style="text-align:right;">
+           <button class="btn btn-dark" onclick="viewItems('${o.id}')" title="View Items"><i class="fas fa-list"></i></button>
+           <button class="btn btn-blue" onclick="editStatus('${o.id}', '${o.payStatus}', '${o.shipStatus}')" title="Edit"><i class="fas fa-edit"></i></button>
+        </td>
+      </tr>`;
+    }).join('');
+    
+    $('#tbody').html(html);
+  }
+
+  function viewItems(id) {
+    $('#viewContent').html('Loading...');
+    $('#viewModal').css('display', 'flex');
+    google.script.run.withSuccessHandler(items => {
+      let h = `<table style="width:100%; font-size:12px;">
+                 <tr style="background:#f9f9f9;"><th>Item</th><th>Size</th><th>Qty</th><th>Total</th></tr>`;
+      h += items.map(i => `<tr><td>${i.name}</td><td>${i.size}</td><td>${i.qty}</td><td>৳${i.total}</td></tr>`).join('');
+      h += `</table>`;
+      $('#viewContent').html(h);
+    }).sdGetOrderItems(id);
+  }
+
+  function editStatus(id, pay, ship) {
+    $('#editID').val(id);
+    $('#editPay').val(pay);
+    $('#editShip').val(ship);
+    $('#editModal').css('display','flex');
+  }
+
+  function saveStatus() {
+    const id = $('#editID').val();
+    const p = $('#editPay').val();
+    const s = $('#editShip').val();
+    $(event.target).text('Saving...');
+    google.script.run.withSuccessHandler(() => {
+      $('#editModal').hide();
+      loadData();
+      $(event.target).text('Save Changes');
+    }).sdUpdateStatus(id, p, s);
+  }
+</script>
+</body>
+</html>
